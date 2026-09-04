@@ -1,0 +1,51 @@
+# Сборка APK в облаке GitHub Actions.
+# ВАЖНО: корнем репозитория должна быть эта папка (android/), чтобы .github/workflows
+# и gradle-файлы (settings.gradle.kts) лежали в корне.
+#
+# Как получить APK:
+#   1) Создайте репозиторий на GitHub и запушьте туда содержимое папки android/.
+#   2) Вкладка Actions запустит сборку автоматически (или запустите вручную — Run workflow).
+#   3) По завершении откройте прогон → раздел Artifacts → скачайте mitap-debug-apk.
+
+name: Build APK
+
+on:
+  push: {}
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: yes | sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mitap-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

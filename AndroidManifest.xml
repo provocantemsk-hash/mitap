@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Запись с микрофона (runtime, API 23+) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Foreground-сервис: базовое разрешение (нужно с API 28+, выдаётся при установке) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- BUG-C02/C06: тип "микрофон" для FGS требует отдельного разрешения с API 34 (Android 14).
+         На <34 игнорируется. Это normal-разрешение, в рантайме не запрашивается. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+
+    <!-- BUG-C05: уведомления — runtime-разрешение с API 33 (Android 13). На <33 не требуется. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Имена участников из контактов (runtime). Запрашивается перед выбором участников. -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <!-- Интернет для облачного ASR/суммаризации. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- BUG-C16: маршрутизация записи на Bluetooth/USB-гарнитуру и переключение
+         коммуникационного устройства (setCommunicationDevice API 31+ / startBluetoothSco ниже). -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- Читаемые названия Bluetooth-устройств на Android 12+ (иначе метки обобщённые). -->
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- BUG-C18: сохранение в пользовательскую папку — через SAF (ACTION_OPEN_DOCUMENT_TREE),
+         разрешения на хранилище НЕ нужны. -->
+
+    <!-- C19: автоопределение звонка (runtime, API 23+). ВАЖНО: канал самого разговора Android
+         сторонним приложениям не отдаёт — запись идёт с микрофона. Accessibility-сервис НЕ
+         используем: Google относит запись звонков через него к spyware (см. COMPATIBILITY.md). -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
+
+    <!-- BUG-C09: WRITE_CALENDAR НЕ добавляем. События создаём через ACTION_INSERT
+         (системный редактор события) — разрешение не нужно. WRITE_CALENDAR потребуется
+         только при "тихом" создании через Calendar Provider. -->
+
+    <!-- BUG-C04: package visibility (Android 11 / API 30+). Без <queries> метод
+         resolveActivity() вернёт null для mailto и вставки события, и кнопки
+         "Отправить"/"В календарь" будут молча ничего не делать. -->
+    <queries>
+        <!-- почтовые клиенты -->
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+        <!-- приложения-календари (вставка события) -->
+        <intent>
+            <action android:name="android.intent.action.INSERT" />
+            <data android:mimeType="vnd.android.cursor.dir/event" />
+        </intent>
+        <!-- резервный общий шэринг текста -->
+        <intent>
+            <action android:name="android.intent.action.SEND" />
+            <data android:mimeType="text/plain" />
+        </intent>
+    </queries>
+
+    <application
+        android:label="Митап"
+        android:theme="@style/Theme.Mitap"
+        android:allowBackup="false"
+        tools:targetApi="35">
+
+        <activity
+            android:name=".MainActivity"
+            android:launchMode="singleTop"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Возврат после авторизации Яндекса (OAuth redirect) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="mitap" android:host="yandex" />
+            </intent-filter>
+        </activity>
+
+        <!-- BUG-C02: foregroundServiceType доступен с API 29; на <29 атрибут игнорируется.
+             С API 34 система требует и тип, и разрешение FOREGROUND_SERVICE_MICROPHONE. -->
+        <service
+            android:name=".RecordingService"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
+
+        <!-- Запись звонков: сервис (тип microphone) и приёмник состояния телефона.
+             C07/C19: на Android 12+ запуск FGS из фонового приёмника ограничен — для надёжного
+             автозапуска нужен активный сервис-слушатель либо роль CallScreeningService/InCallService
+             (см. COMPATIBILITY.md). -->
+        <service
+            android:name=".CallRecordingService"
+            android:foregroundServiceType="microphone"
+            android:exported="false" />
+
+        <receiver
+            android:name=".PhoneStateReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>
