@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.mitap.app"
-        minSdk = 29          // см. COMPATIBILITY.md, BUG-01
+        minSdk = 24          // см. COMPATIBILITY.md, BUG-01
         targetSdk = 35
         versionCode = 1
         versionName = "0.1"
